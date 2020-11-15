@@ -9,7 +9,6 @@ const server = createServer((request: IncomingMessage, response: ServerResponse)
     
     if (url) {
         const redirect = linkRepository.get(url);    
-        console.log(redirect);
         if (redirect) {
             response.setHeader('Location', redirect);
             response.statusCode = 301;
