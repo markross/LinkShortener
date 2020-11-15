@@ -1,14 +1,14 @@
-import { LinkShortener, RandomStringGenerator, InMemoryRepository } from '../src/link-shortener';
+import { LinkShortener, RandomStringGenerator, JsonFileRepository } from '../src/link-shortener';
 import { mocked } from 'ts-jest/utils'
-
-const shortener = new LinkShortener(new RandomStringGenerator(), new InMemoryRepository());
+const dummyLinksFile = '__tests__/links.json';
+const shortener = new LinkShortener(new RandomStringGenerator(), new JsonFileRepository(dummyLinksFile));
 
 describe('URL Shortener', () => {
 
   it('returns a shortened url', () => {
     const shortened = shortener.shorten('https://www.somedomain.com/somelongurl');
     expect(shortened.includes(LinkShortener.BASE_URL)).toBe(true);
-    expect(shortened.length).toBe(22);
+    expect(shortened.length).toBe(LinkShortener.BASE_URL.length + 5);
   });
   
   it('returns a different shortened url for a different source url', () =>{
@@ -38,7 +38,7 @@ describe('URL Shortener', () => {
       }
     }
 
-    const shortener = new LinkShortener(stringGen, new InMemoryRepository);  
+    const shortener = new LinkShortener(stringGen, new JsonFileRepository(dummyLinksFile));  
 
     expect(shortener.shorten('https://www.example.com/somelongdomain').includes('second')).toBe(true);
     

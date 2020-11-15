@@ -1,43 +1,57 @@
+import { promises as fs } from 'fs';
+
+
 interface StringGenerator {
     generate: () => string;
 }
 
 interface LinkRepository {
-    get: (longUrl: string) => string | undefined;
-    save: (longUrl: string, shortUrl: string) => void; 
+    get: (shortUrl: string) => string | undefined;
+    getByLongUrl: (longUrl: string) => string | undefined;
+    save: (shortUrl: string, longUrl: string) => Promise<void>; 
     exists: (shortUrl: string) => boolean;
 }
 
-export class InMemoryRepository implements LinkRepository {
+export class JsonFileRepository implements LinkRepository {
     private linkMap: Map<string, string>;
-
-    constructor() {
-        this.linkMap = new Map();
-
-        // A few examples - imagine this would be loaded from a database
-        this.linkMap.set('https://www.example.com/somelongurl', 'abc123');
-        this.linkMap.set('https://www.example.com/anotherlongurl', 'def456');
+    
+    constructor(fileName = 'links.json') {
+        this.linkMap = new Map();        
+        const links = require(process.env.PWD + '/' + fileName);
+        const linkMap: Map<string, string> = new Map(Object.entries(links));
+        this.linkMap = linkMap;
     }
 
-    get(longUrl: string) : string | undefined  {
-        return this.linkMap.get(longUrl);
+    get(shortUrl: string) : string | undefined  {
+        return this.linkMap.get(shortUrl);
     }
 
-    save(longUrl: string, shortUrl: string) {
-        this.linkMap.set(longUrl, shortUrl);
+    getByLongUrl(longUrl: string) : string | undefined {
+        return [...this.linkMap.values()]
+            .filter(url => url === longUrl)[0];
+    }
+
+    async save(shortUrl: string, longUrl: string): Promise<void> {
+        this.linkMap.set(shortUrl, longUrl);        
+        const json = JSON.stringify(Object.fromEntries(this.linkMap));
+        await this.persist(json);        
     }
 
     exists (shortUrl: string) : boolean {
-        return [...this.linkMap.values()]
-            .filter(url => url === shortUrl)
-            .length > 0;
+        return this.linkMap.get(shortUrl) !== undefined;
+    }   
+
+    private async persist(json: string): Promise<void> {
+        return await fs.writeFile('./links.json', json);
     }
-    
 }
 
 export class RandomStringGenerator implements StringGenerator {
+    
+    /**
+     * Generates a pseudo random 5 character string
+     */
     generate(): string {
-
         const randomString = [...Array(5)].map(() => {
             return Math.floor(Math.random() * 36).toString(36)
         }).join('');
@@ -48,7 +62,7 @@ export class RandomStringGenerator implements StringGenerator {
 
 export class LinkShortener {
 
-    public static readonly BASE_URL = 'https://short.ly/';
+    public static readonly BASE_URL = 'http://localhost:5000/';
     private stringGenerator: StringGenerator;
     private linkRepository: LinkRepository;
 
@@ -64,7 +78,7 @@ export class LinkShortener {
 
     shorten (url: string) : string {
 
-        if (this.linkRepository.get(url)) {
+        if (this.linkRepository.getByLongUrl(url)) {
             return LinkShortener.BASE_URL + this.linkRepository.get(url);
         }
 
@@ -74,8 +88,7 @@ export class LinkShortener {
             shortString = this.shorten(url);
         }
         
-        this.linkRepository.save(url, shortString);
-    
+        this.linkRepository.save(shortString, url);  
         return LinkShortener.BASE_URL + shortString;
     }
 }
